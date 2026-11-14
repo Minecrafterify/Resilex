@@ -1,35 +1,22 @@
-
-
 # Resilex
 
-**A regular-expression engine written in Python, with its own parser, compiler, and matching engines.**
+**A regular expression engine written in Python, with its own parser, compiler, and matching engines.**
 
-Resilex is a standalone regular-expression engine designed to follow Python's `re` behavior where syntax overlaps, while providing additional extensions and tools for exploring how regex engines work.
+Resilex is a standalone regex engine that behaves like Python's re where the syntax overlaps, plus a few extensions and tools for exploring how regex engines work. The installed runtime never imports re or hands matching off to it.
 
-Its installed runtime does not import or delegate matching to Python's `re` module.
+Regular patterns run on an ordered Thompson NFA, so you get linear time for a fixed pattern and no catastrophic backtracking on patterns like `(a+)+b`. Patterns with backreferences or variable width lookbehind use a separate bounded backtracking matcher instead, and those can run into the work limit.
 
-For regular patterns, Resilex uses an ordered Thompson NFA with a linear-time guarantee for a fixed pattern. This prevents catastrophic backtracking on patterns such as `(a+)+b`.
-
-Patterns containing backreferences or variable-width lookbehind use a separate bounded backtracking matcher and may reach the configured work limit.
-
-> **Note:** Resilex prioritizes learning, experimentation, and bounded execution over speed. It is not a performance replacement for Python's built-in `re` module.
+> Quick heads up: this is for learning, experimenting, and keeping execution bounded. It's not fast, and it's not meant to replace Python's built in re.
 
 ## Installation
 
-Install Resilex from the project directory:
+From the project directory:
 
 ```bash
 python -m pip install -e .
 ```
 
-Resilex requires Python 3.10 or newer and has no third-party runtime dependencies.
-
-Import it as `resilex`.
-
-The package also provides two command-line tools:
-
-- `resilex-visualize`
-- `resilex-benchmark`
+You need Python 3.10 or newer and nothing else at runtime. Import it as resilex. You also get two command line tools: `resilex-visualize` and `resilex-benchmark`.
 
 ## Quick start
 
@@ -45,134 +32,27 @@ if match:
 print(pattern.explain("item-42"))
 ```
 
-## 200k Tests
+## 200k tests
 
-NEEDS `hypothesis` TO WORK!
+You need `hypothesis` installed for this one.
 
-```python
+```bash
 python3 tests/twohundredktests.py <number of workers>
 ```
 
----
-
-## At a glance
-
-| Category | Details |
-|---|---|
-| Language | Python 3.10+ |
-| Dependencies | No third-party runtime dependencies |
-| Regular-pattern engine | Ordered Thompson NFA |
-| Extended-pattern engine | Bounded backtracking |
-| Main strength | Linear-time guarantee on the NFA path for a fixed pattern |
-| Visualization | NFA and DFA diagrams |
-| Compatibility goal | Python `re` behavior where syntax overlaps, with additional extensions |
-| Main trade-off | Slower than Python's C-based `re` |
-
-The parser, compiler, matchers, flags, syntax errors, escaping, and pattern representation are implemented by Resilex.
-
-The installed runtime does not use Python's `re` module, even indirectly. `LOCALE` byte matching uses the platform's C locale functions through Python's standard-library `ctypes`.
-
----
-
 ## Features
 
-### Pattern syntax
+**Syntax:** character classes and escapes (`\d`, `\w`, `\s`, `\b`, `\A`, `\Z`, `\u`, `\N{...}`), Unicode properties like `\p{Script=Greek}`, anchors, capturing, non capturing and named groups, backreferences, alternation, greedy, lazy and possessive quantifiers, atomic groups, conditionals, lookahead and lookbehind, inline flags, and comments.
 
-Resilex supports:
+**Flags:** IGNORECASE (I), MULTILINE (M), DOTALL (S), VERBOSE (X), ASCII (A), UNICODE (U), LOCALE (L), DEBUG and NOFLAG. LOCALE is for bytes patterns and goes through ctypes to the platform's C locale functions. Case insensitive matching handles odd Unicode pairs like İ/i and the Kelvin sign/K, backreferences included.
 
-- **Literals and character classes:** `.`, `[abc]`, `[^abc]`, `[a-z]`
-- **Character escapes:** `\d`, `\D`, `\w`, `\W`, `\s`, `\S`
-- **Boundary and position escapes:** `\b`, `\B`, `\A`, `\Z`
-- **Unicode and numeric escapes:** `\x41`, `\101`, `\u0041`, `\N{...}`
-- **Unicode properties:** `\p{Letter}`, `\p{Script=Greek}`, `\p{scx=Hira}`, `\P{Number}`
-- **Anchors:** `^`, `$`
-- **Groups:** capturing, non-capturing, and named groups
-- **Backreferences:** numbered (`\1`) and named (`(?P=name)`)
-- **Alternation:** `a|b`
-- **Quantifiers:** `*`, `+`, `?`, `{n}`, `{n,m}`, `{n,}`, `{,m}`
-- **Quantifier modes:** greedy, lazy, and possessive
-- **Atomic groups:** `(?>...)`
-- **Conditionals:** `(?(1)yes|no)`
-- **Lookarounds:** positive and negative lookahead and lookbehind
-- **Inline flags:** `(?i)`, scoped flags such as `(?i:...)`
-- **Comments:** `(?#...)`
+**API:** it mirrors Python's, with compile, search, match, fullmatch, finditer, findall, sub, subn, split, escape and purge. pos and endpos work, and match objects give you group, groups, groupdict, start, end, span, expand, lastindex, lastgroup and regs, plus `match[1]`. It handles str, bytes, bytearray and memoryview, and compiled patterns can be pickled and copied. Call `.explain(text)` to see the actual search path.
 
-Unicode General_Category and Script properties use bundled Unicode 15.0 data.
+## Limits
 
-### Flags
+Backtracking patterns have no linear guarantee, and you'll see a `RegexMatchLimitError` once the work limit is reached.
 
-| Flag | Short alias | Description |
-|---|---|---|
-| `IGNORECASE` | `I` | Case-insensitive matching |
-| `MULTILINE` | `M` | Multiline matching |
-| `DOTALL` | `S` | Dot matches newline characters |
-| `VERBOSE` | `X` | Verbose pattern formatting |
-| `ASCII` | `A` | ASCII character-class semantics |
-| `UNICODE` | `U` | Unicode matching semantics |
-| `LOCALE` | `L` | Locale-dependent byte matching |
-| `DEBUG` | — | Display compiled NFA debugging information |
-| `NOFLAG` | — | No flags enabled |
-
-`LOCALE` is available for bytes patterns.
-
-Case-insensitive matching includes special Unicode case pairs, such as `İ`/`i`, `ı`/`I`, and the Kelvin sign/`K`, as well as case-insensitive backreferences.
-
-`LOCALE` byte matching uses the platform C runtime's locale character-classification and case-folding functions.
-
-### Python-style API
-
-Resilex provides module-level functions and corresponding compiled-pattern methods.
-
-Supported functions include:
-
-- `compile`
-- `search`
-- `match`
-- `fullmatch`
-- `finditer`
-- `findall`
-- `sub`
-- `subn`
-- `split`
-- `escape`
-- `purge`
-
-Additional API features:
-
-- `pos` and `endpos` matching arguments.
-- Match objects with `group`, `groups`, `groupdict`, `start`, `end`, `span`, and `expand`.
-- Match metadata including `lastindex`, `lastgroup`, `regs`, `string`, `re`, `pos`, and `endpos`.
-- Numbered match indexing, such as `match[1]`.
-- Compiled-pattern explanations through `.explain(text)`.
-- Support for `str`, `bytes`, `bytearray`, and `memoryview`.
-- Pickling and copying of compiled patterns.
-- Shared compiled-pattern concurrency tests covering search, match, fullmatch, findall, and finditer.
-
-The `.explain(text)` method shows the actual search path, including match spans or reasons candidate paths failed.
-
----
-
-## Execution model and safety
-
-Resilex uses two matching approaches depending on the pattern.
-
-### Thompson NFA
-
-Regular patterns are executed using an ordered Thompson NFA.
-
-For a fixed pattern, this execution path has a linear-time guarantee with respect to input length.
-
-Nested quantifiers such as `(a+)+b` do not trigger catastrophic backtracking on this path.
-
-### Bounded backtracking
-
-Patterns requiring backtracking, including those with backreferences and variable-width lookbehind, use a separate bounded backtracking matcher.
-
-These patterns do not have the same linear-time guarantee and may raise `RegexMatchLimitError` when the configured work limit is reached.
-
-### Configurable limits
-
-`RegexLimits` controls resource limits during compilation, automaton construction, and bounded backtracking.
+`RegexLimits` lets you change the defaults:
 
 | Limit | Default |
 |---|---:|
@@ -184,11 +64,7 @@ These patterns do not have the same linear-time guarantee and may raise `RegexMa
 | DFA alphabet size | 256 |
 | Backtracking steps | 1,000,000 |
 
-The backtracking-step limit applies to the bounded VM, not the NFA execution path.
-
-Exceeding configured limits raises `RegexComplexityError` or `RegexMatchLimitError`, rather than allowing the relevant operation to continue without a bound.
-
-Example:
+Go over a limit and you get a `RegexComplexityError` or `RegexMatchLimitError`.
 
 ```python
 from resilex import RegexLimits, compile
@@ -203,85 +79,43 @@ pattern = compile(
 print(pattern.search("a" * 1000))
 ```
 
----
-
 ## Tools
 
-### NFA visualizer
-
-Generates Graphviz DOT representations of compiled NFA structures.
-
-Tool: `resilex-visualize`
-
-Example:
+`resilex-visualize` makes Graphviz DOT output for compiled NFAs:
 
 ```bash
 resilex-visualize '\d+' --output pattern.dot
 ```
 
-Render the generated DOT file using Graphviz:
+Render it with Graphviz:
 
 ```bash
 dot -Tsvg pattern.dot -o pattern.svg
 ```
 
-The visualizer also supports DFA output for a specified finite alphabet:
+It can also output a DFA for a finite alphabet:
 
 ```bash
 resilex-visualize 'a|b' --format dfa --alphabet ab --output pattern.dot
 ```
 
-### DFA conversion and minimization
+DFA conversion supports subset construction, Hopcroft minimization, explicit alphabets, anchors and single character lookarounds. It can't do backreferences or conditionals, since backreferences can describe non regular languages.
 
-Resilex supports:
-
-- Subset construction.
-- Hopcroft minimization.
-- Explicit alphabet-based DFA construction.
-- Anchors and single-character lookarounds within the supported DFA conversion boundaries.
-
-### Benchmarking
-
-The benchmark tool measures Resilex against pathological input patterns, including `(a+)+b`, across different input sizes.
-
-Tool: `resilex-benchmark`
-
-Check available options:
+`resilex-benchmark` throws difficult patterns like `(a+)+b` at Resilex across different input sizes:
 
 ```bash
 resilex-benchmark --help
 ```
 
----
-
-## Testing and verification
-
-Resilex includes a test suite covering supported syntax, matching behavior, limits, concurrency, and other engine functionality.
-
-### Test suite
-
-Run:
+## Testing
 
 ```bash
 python -m pytest -q
 ```
 
-The current test suite contains 64 tests.
+There are 64 tests, and the last run passed all of them plus 10,282 subtests.
 
-The latest recorded run completed with:
-
-- 64 tests passed.
-- 10,282 subtests passed.
-
-### CPython expected-results corpus
-
-Resilex includes a comparison script for the recorded expected-results corpus from CPython v3.10.13:
-
-- 403/403 corpus cases passed.
-- Cases cover syntax errors, no-match results, and successful search results.
-- Successful cases evaluate expected expressions against whole matches, capture groups, named groups, and flags.
-
-To reproduce:
+A comparison script checks recorded expected results from CPython v3.10.13, and 403/403 cases passed. To reproduce it:
 
 ```bash
 curl -fsSLo /tmp/re_tests.py \
@@ -290,28 +124,13 @@ curl -fsSLo /tmp/re_tests.py \
 python tests/check_cpython_conformance.py /tmp/re_tests.py
 ```
 
-This is a fixture-based check against recorded CPython expectations. It is not a live comparison against CPython's regex engine and does not run the complete CPython `test_re.py` suite.
+It's a fixture based check, not a live comparison, and it doesn't run the full `test_re.py` suite.
 
-### Additional verification
+Other checks: tests that confirm re is never imported (`python -S` too), random searches, locale byte tests across all 256 values, and concurrency checks. Tested against Python 3.12.3 so far.
 
-The project also includes:
+## Clean wheel verification
 
-- Installed-runtime checks verifying that the engine does not import Python's `re` module.
-- An isolated runtime check using `python -S`.
-- Seeded randomized search checks across supported syntax, flags, and bounds.
-- Search-span cross-checks against the engine's full-match operation.
-- Locale byte-matching tests covering all 256 byte values under available locales.
-- Shared-pattern concurrency checks.
-
-The project has been tested against Python 3.12.3.
-
----
-
-## Reproducible clean-wheel verification
-
-The following procedure builds both distribution formats and tests the installed wheel from a fresh virtual environment.
-
-Requirements: Python 3.10 or newer.
+This builds both distribution formats and tests the installed wheel in a fresh virtual environment (Python 3.10+).
 
 ```bash
 python3.10 -m pip install build
@@ -334,7 +153,7 @@ cp tests/test_regex_engine.py tests/check_cpython_conformance.py \
 cd /tmp/resilex-validation
 ```
 
-Verify the installed package:
+Check the installed package:
 
 ```bash
 /tmp/resilex-clean-venv/bin/python -c \
@@ -357,7 +176,7 @@ curl -fsSLo re_tests.py \
   check_cpython_conformance.py re_tests.py
 ```
 
-Inspect the distribution archives:
+Look inside the archives:
 
 ```bash
 python3.10 -m zipfile -l \
@@ -366,118 +185,36 @@ python3.10 -m zipfile -l \
 tar -tzf /tmp/resilex-dist/resilex-1.0.0.tar.gz
 ```
 
-Confirm that both archives contain:
+Both should contain LICENSE, `LICENSE-UNICODE.txt`, `NOTICE`, `resilex_unicode_data/LICENSE.txt`, and all three bundled Unicode data files. Results only reflect machines actually tested.
 
-- `LICENSE`
-- `LICENSE-UNICODE.txt`
-- `NOTICE`
-- `resilex_unicode_data/LICENSE.txt`
-- All three bundled Unicode data files.
+## Limitations
 
-For another machine, substitute its Python 3.10+ executable and repeat the procedure.
-
-Results reported here apply only to the machines and interpreters actually tested.
-
----
-
-## Limitations and compatibility boundaries
-
-### Compatibility
-
-- Resilex aims to follow Python `re` behavior where syntax overlaps, but it is not a complete replacement.
-- Script and Script_Extensions properties use bundled Unicode 15.0 data. Newer Unicode scripts are not included.
-- Variable-width lookbehind is a Resilex extension and is not accepted by Python's `re`.
-- Variable-width lookbehind may require trying multiple candidate starting positions.
-- DFA conversion supports only single-character lookarounds.
-- Backreferences and conditionals are not supported by DFA conversion. Backreferences can describe non-regular languages, which cannot generally be represented by a DFA.
-- Syntax errors are reported through Resilex's own `RegexSyntaxError` class, which does not inherit from Python's `re.error`.
-
-### Performance and trade-offs
-
-**Speed:** Resilex is implemented in Python and is substantially slower than the C-based `re` engine.
-
-In one development-machine test:
-
-| Operation | Approximate time |
-|---|---:|
-| Searching `\d+` over 1 MB | 1.8 seconds |
-| Case-insensitive literal search over 1 MB | 6 seconds |
-
-These figures are machine-dependent and should not be treated as universal benchmarks.
-
-**Backtracking:** Backreference patterns and variable-width lookbehind use bounded backtracking and do not receive the NFA path's linear-time guarantee.
-
-**Default limits:** Resilex has configurable resource limits that may be stricter than Python's `re`. See the `RegexLimits` table above.
-
----
+- It follows Python re where the syntax overlaps, but it's not a full replacement.
+- Only Unicode 15.0 data is bundled, so newer scripts aren't included.
+- Variable width lookbehind is a Resilex extension that Python's re doesn't accept.
+- `RegexSyntaxError` doesn't inherit from Python's re.error.
+- It's a lot slower than the C based re. On one dev machine, `\d+` over 1 MB took about 1.8 seconds and a case insensitive literal search took 6. Numbers vary by machine, and the default limits may be stricter than Python's re.
 
 ## Unicode data attribution
 
-Resilex bundles the following files from Unicode Character Database 15.0.0:
+Resilex bundles `Scripts.txt`, `ScriptExtensions.txt` and `PropertyValueAliases.txt` from Unicode Character Database 15.0.0 (https://www.unicode.org/Public/15.0.0/ucd/), Copyright © 2022 Unicode, Inc., under the Unicode License V3. See `LICENSE-UNICODE.txt` and `NOTICE`. Resilex's own code is under the MIT License, see LICENSE.
 
-- `Scripts.txt`
-- `ScriptExtensions.txt`
-- `PropertyValueAliases.txt`
+## Who is this for?
 
-Source: [Unicode Character Database 15.0.0](https://www.unicode.org/Public/15.0.0/ucd/)
-
-Copyright © 2022 Unicode, Inc.
-
-These files are subject to the Unicode License V3. See:
-
-- [`LICENSE-UNICODE.txt`](./LICENSE-UNICODE.txt)
-- [`NOTICE`](./NOTICE)
-
-Resilex's own source code is licensed under the MIT License.
-
-See [`LICENSE`](./LICENSE).
-
-The bundled Unicode data files are subject to their separate Unicode License V3 terms.
-
----
-
-## Who is Resilex for?
-
-**Good fit:**
-
-- Learning how regular-expression engines work.
-- Studying automata and matching algorithms.
-- Experimenting with regular-expression syntax.
-- Exploring NFA and DFA structures.
-- Running supported untrusted patterns with bounded execution.
-
-**Not a good fit:**
-
-- High-volume text processing.
-- Performance-critical production workloads.
-- Applications requiring complete compatibility with Python's `re`.
-
----
+It's good for learning, studying automata, exploring NFA and DFA structures, and running supported untrusted patterns with bounded execution. It's not a good fit for high volume text processing, performance critical production work, or full compatibility with Python's re.
 
 ## Development status
 
-Resilex is currently in active development.
-
-Although the project includes an extensive test suite and multiple verification procedures, bugs and compatibility differences may still exist.
-
-Additional testing, fuzzing, fixes, and improvements will be carried out progressively.
-
-Contributions, bug reports, and constructive feedback are welcome.
-
----
+Still in active development. The test suite is extensive, but bugs and compatibility differences may still be hiding. More testing, fuzzing and fixes are coming, and contributions, bug reports and feedback are welcome.
 
 ## Attribution
 
-Resilex was originally created by **Minecrafterify**.
+Resilex was originally created by Minecrafterify.
 
-You are free to use, modify, distribute, and sell software based on Resilex under the MIT License.
+You're free to use, modify, distribute, and sell software based on Resilex under the MIT License. This applies to all versions of the project, including earlier commits in the repository's Git history.
 
-**This licensing applies to all versions of the project, including earlier commits in the repository's Git history.**
-
-If you use or build upon Resilex, please credit **Minecrafterify** as the original creator and link back to the original repository:
+If you use or build on Resilex, please credit Minecrafterify as the original creator and link back to the original repo:
 
 https://github.com/Minecrafterify/Resilex
 
-For additional attribution information, see [ATTRIBUTION.md](ATTRIBUTION.md).
-
-
+For more on attribution, see `ATTRIBUTION.md`.
